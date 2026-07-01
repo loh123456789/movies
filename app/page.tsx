@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react";
 import { MY_MOVIES } from "@/lib/movies";
 
-const ARCHIVE_KEY = "movie-archive";
 const DEFAULT_GENRES = [
   "Drama", "Romance", "Thriller", "Crime", "Comedy", "Fantasy",
   "Mystery", "Horror", "Science Fiction", "Adventure", "Animation",
@@ -17,7 +16,19 @@ function Stars({ rating }: { rating: number }) {
     <div className="flex gap-[2px] text-[#d5b178]">
       {[0, 1, 2, 3, 4].map((i) => {
         if (i < full) return <span key={i}>★</span>;
-        if (i === full && half) return <span key={i}>⯨</span>;
+        if (i === full && half) {
+          return (
+            <span key={i} className="relative inline-block">
+              <span className="text-[#3a3226]">★</span>
+              <span
+                className="absolute inset-0 overflow-hidden"
+                style={{ width: "50%" }}
+              >
+                ★
+              </span>
+            </span>
+          );
+        }
         return <span key={i} className="text-[#3a3226]">★</span>;
       })}
     </div>
@@ -62,68 +73,6 @@ function GenreTicker({ genres, slow }: { genres: string[]; slow: boolean }) {
   );
 }
 
-function ArchiveOverlay({
-  archived,
-  onRestore,
-  onClose,
-}: {
-  archived: string[];
-  onRestore: (title: string) => void;
-  onClose: () => void;
-}) {
-  const archivedMovies = MY_MOVIES.filter((m) => archived.includes(m.title));
-  return (
-    <div className="fixed inset-0 z-50 bg-black/90 flex flex-col items-center px-3 sm:px-0" onClick={onClose}>
-      <div
-        className="relative mt-10 sm:mt-16 w-full max-w-[720px] max-h-[80vh] sm:max-h-[75vh] overflow-y-auto border border-[#2a2a2a] bg-[#090909]"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="sticky top-0 bg-[#090909] border-b border-[#1a1a1a] px-4 sm:px-8 py-4 sm:py-5 flex items-center justify-between z-10">
-          <div>
-            <div className="text-[9px] sm:text-[10px] tracking-[0.4em] uppercase text-zinc-600 mb-1">watched</div>
-            <div className="text-lg sm:text-xl font-black text-[#f2ede5]">Archive</div>
-          </div>
-          <button
-            onClick={onClose}
-            className="text-zinc-600 hover:text-[#c9a96e] text-[11px] tracking-[0.3em] uppercase transition"
-          >
-            ✕ close
-          </button>
-        </div>
-        {archivedMovies.length === 0 ? (
-          <div className="px-4 sm:px-8 py-12 text-center text-zinc-600 text-sm tracking-[0.2em] uppercase">
-            archive is empty
-          </div>
-        ) : (
-          <div className="divide-y divide-[#1a1a1a]">
-            {archivedMovies.map((m) => (
-              <div key={m.title} className="flex items-center gap-3 sm:gap-5 px-4 sm:px-8 py-3 sm:py-4 group hover:bg-[#0f0f0f] transition">
-                <img
-                  src={m.poster}
-                  alt={m.title}
-                  className="w-9 h-12 sm:w-10 sm:h-14 object-cover rounded-sm opacity-70 group-hover:opacity-100 transition flex-shrink-0"
-                />
-                <div className="flex-1 min-w-0">
-                  <div className="text-[#f2ede5] text-sm font-bold truncate">{m.title}</div>
-                  <div className="text-zinc-600 text-[10px] sm:text-[11px] tracking-[0.2em] uppercase mt-0.5">
-                    {m.year} · {m.director}
-                  </div>
-                </div>
-                <button
-                  onClick={() => onRestore(m.title)}
-                  className="text-[10px] tracking-[0.3em] uppercase text-zinc-600 hover:text-[#c9a96e] transition whitespace-nowrap"
-                >
-                  ↩ restore
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
 export default function Page() {
   const [movie, setMovie] = useState<(typeof MY_MOVIES)[number] | null>(null);
   const [last, setLast] = useState(-1);
@@ -133,14 +82,7 @@ export default function Page() {
   const [genres, setGenres] = useState(DEFAULT_GENRES);
   const [sessionCount, setSession] = useState(0);
   const [rolling, setRolling] = useState(false);
-  const [archived, setArchived] = useState<string[]>([]);
-  const [showArchive, setShowArchive] = useState(false);
   const [previewMovies, setPreviewMovies] = useState<(typeof MY_MOVIES)[number][]>([]);
-
-  useEffect(() => {
-    const saved = localStorage.getItem(ARCHIVE_KEY);
-    if (saved) setArchived(JSON.parse(saved));
-  }, []);
 
   useEffect(() => {
     const shuffled = [...MY_MOVIES].sort(() => Math.random() - 0.5).slice(0, 5);
@@ -163,29 +105,11 @@ export default function Page() {
     "translate(250px,80px) rotate(24deg)",
   ];
 
-  function addToArchive(title: string) {
-    const next = archived.includes(title) ? archived : [...archived, title];
-    setArchived(next);
-    localStorage.setItem(ARCHIVE_KEY, JSON.stringify(next));
-  }
-
-  function restoreFromArchive(title: string) {
-    const next = archived.filter((t) => t !== title);
-    setArchived(next);
-    localStorage.setItem(ARCHIVE_KEY, JSON.stringify(next));
-  }
-
-  const availableMovies = MY_MOVIES.filter((m) => !archived.includes(m.title));
+  const availableMovies = MY_MOVIES;
 
   async function spin() {
     if (rolling || availableMovies.length === 0) return;
     setRolling(true);
-
-    for (let i = 0; i < 18; i++) {
-      const temp = availableMovies[Math.floor(Math.random() * availableMovies.length)];
-      setMovie(temp);
-      await new Promise((r) => setTimeout(r, 40 + i * 10));
-    }
 
     let chosen = availableMovies[Math.floor(Math.random() * availableMovies.length)];
     if (availableMovies.length > 1 && movie && chosen.title === movie.title) {
@@ -260,29 +184,21 @@ export default function Page() {
 
       {sessionCount > 0 && (
         <div className="fixed bottom-9 left-3 sm:bottom-16 sm:left-9 z-20 flex flex-col gap-0.5 sm:gap-1">
-          <div className="text-[0.6rem] sm:text-[0.7rem] tracking-[0.2em] sm:tracking-[0.25em] uppercase text-zinc-600">this session</div>
+          <div className="text-[0.6rem] sm:text-[0.7rem] tracking-[0.2em] sm:tracking-[0.25em] uppercase text-zinc-600">за сессию</div>
           <div className="text-xl sm:text-3xl font-bold text-[#c9a96e] leading-none">{String(sessionCount).padStart(2, "0")}</div>
-          <div className="text-[0.6rem] sm:text-[0.7rem] tracking-[0.15em] sm:tracking-[0.2em] uppercase text-zinc-600 hidden sm:block">shuffled</div>
+          <div className="text-[0.6rem] sm:text-[0.7rem] tracking-[0.15em] sm:tracking-[0.2em] uppercase text-zinc-600 hidden sm:block">выбрано</div>
         </div>
-      )}
-
-      {showArchive && (
-        <ArchiveOverlay
-          archived={archived}
-          onRestore={restoreFromArchive}
-          onClose={() => setShowArchive(false)}
-        />
       )}
 
       <div className="absolute top-[-300px] left-1/2 -translate-x-1/2 w-[800px] h-[800px] rounded-full blur-[180px] bg-[#c9a96e]/[0.04] pointer-events-none" />
 
       <div className="relative z-10 flex flex-col items-center justify-center min-h-[100svh] sm:min-h-0 pt-10 sm:pt-20 pb-12 sm:pb-20 px-4">
-        <div className="text-[10px] sm:text-[12px] tracking-[0.3em] sm:tracking-[0.45em] uppercase text-zinc-600 mb-2 sm:mb-3 text-center">movie archive</div>
+        <div className="text-[10px] sm:text-[12px] tracking-[0.3em] sm:tracking-[0.45em] uppercase text-zinc-600 mb-2 sm:mb-3 text-center">подборка фильмов</div>
 
-        <h1 className="text-3xl sm:text-5xl md:text-6xl font-black tracking-tight mb-3 sm:mb-4 text-center">Random Movie</h1>
+        <h1 className="text-3xl sm:text-5xl md:text-6xl font-black tracking-tight mb-3 sm:mb-4 text-center">Случайный фильм</h1>
 
         <div className="text-[9px] sm:text-[11px] tracking-[0.2em] sm:tracking-[0.3em] uppercase text-zinc-600 mb-6 sm:mb-8 text-center">
-          {MY_MOVIES.length} films loaded / {availableMovies.length} available
+          {MY_MOVIES.length} фильмов в базе
         </div>
 
         <button
@@ -291,7 +207,7 @@ export default function Page() {
           disabled={rolling}
           className="cursor-pointer border border-[#c9a96e] px-8 sm:px-14 py-4 sm:py-5 uppercase tracking-[0.25em] sm:tracking-[0.35em] text-[#c9a96e] hover:bg-[#c9a96e] hover:text-black transition active:scale-95 disabled:opacity-50 text-sm sm:text-base w-full sm:w-auto max-w-[320px] sm:max-w-none"
         >
-          {rolling ? "selecting..." : movie ? "✦ reshuffle ✦" : "✦ shuffle ✦"}
+          {rolling ? "выбираем..." : movie ? "✦ ещё раз ✦" : "✦ выбрать ✦"}
         </button>
 
         {!movie ? (
@@ -309,20 +225,13 @@ export default function Page() {
                 />
               ))}
             </div>
-
-            <button
-              onClick={() => setShowArchive(true)}
-              className="relative z-10 mt-4 sm:mt-6 text-[9px] sm:text-[10px] tracking-[0.25em] sm:tracking-[0.35em] uppercase text-zinc-600 hover:text-[#c9a96e] transition border border-[#1e1e1e] hover:border-[#c9a96e]/30 px-4 sm:px-6 py-2 sm:py-2.5"
-            >
-              ✦ archive{archived.length > 0 ? ` (${archived.length})` : ""}
-            </button>
           </div>
         ) : (
           <div className="mt-8 sm:mt-12 w-full flex flex-col items-center">
             <div className="flex gap-5 sm:gap-10 mb-6 sm:mb-8 items-center text-[10px] sm:text-xs uppercase tracking-[0.2em] sm:tracking-[0.3em] flex-wrap justify-center">
-              <button onClick={goBack} disabled={!history.length} className="text-zinc-500 hover:text-[#c9a96e] disabled:opacity-30">← previous</button>
-              <button onClick={goForward} disabled={!future.length} className="text-zinc-500 hover:text-[#c9a96e] disabled:opacity-30">next →</button>
-              <button onClick={reset} className="text-zinc-500 hover:text-[#c9a96e] transition">↺ reset</button>
+              <button onClick={goBack} disabled={!history.length} className="text-zinc-500 hover:text-[#c9a96e] disabled:opacity-30">← назад</button>
+              <button onClick={goForward} disabled={!future.length} className="text-zinc-500 hover:text-[#c9a96e] disabled:opacity-30">вперёд →</button>
+              <button onClick={reset} className="text-zinc-500 hover:text-[#c9a96e] transition">↺ сброс</button>
             </div>
 
             <div
@@ -347,14 +256,14 @@ export default function Page() {
               <div className="relative z-10 p-5 sm:p-8 md:p-10 flex flex-col">
                 <div className="mb-4 sm:mb-5">
                   <div className="text-[#c9a96e] uppercase tracking-[0.2em] sm:tracking-[0.3em] text-[9px] sm:text-[10px]">{movie.genres.join(" / ")}</div>
-                  <div className="flex items-start sm:items-center justify-between flex-wrap gap-1 sm:gap-0">
-                    <div className="text-2xl sm:text-3xl font-black leading-tight">{movie.title}</div>
-                    <div className="text-xs sm:text-sm text-zinc-400 whitespace-nowrap sm:ml-6">{movie.year} · {movie.runtime}</div>
+                  <div className="flex items-start justify-between flex-nowrap gap-2">
+                    <div className="text-2xl sm:text-3xl font-black leading-tight min-w-0 break-words">{movie.title}</div>
+                    <div className="text-xs sm:text-sm text-zinc-400 whitespace-nowrap flex-shrink-0 pt-1 sm:pt-1.5">{movie.year} · {movie.runtime}</div>
                   </div>
                 </div>
 
                 <div className="text-zinc-500 text-sm mb-3 sm:mb-4">
-                  Directed by <span className="text-zinc-200 ml-2">{movie.director}</span>
+                  Режиссёр: <span className="text-zinc-200 ml-2">{movie.director}</span>
                 </div>
 
                 <div className="text-[#c9a96e] uppercase text-[9px] sm:text-[10px] tracking-[0.2em] sm:tracking-[0.3em] mb-4 sm:mb-5">{movie.country.join(" • ")}</div>
@@ -368,37 +277,13 @@ export default function Page() {
                     <Stars rating={movie.rating} />
                     <div className="text-zinc-500 text-sm">{movie.rating}/5</div>
                   </div>
-
-                  <button
-                    onClick={() => addToArchive(movie.title)}
-                    disabled={archived.includes(movie.title)}
-                    className="transition border p-2 disabled:opacity-40 disabled:cursor-default hover:border-[#c9a96e]/50"
-                    style={
-                      archived.includes(movie.title)
-                        ? { borderColor: "#2a2a2a", color: "#555" }
-                        : { borderColor: "rgba(201,169,110,0.3)", color: "#c9a96e" }
-                    }
-                    title={archived.includes(movie.title) ? "Archived" : "Mark as watched"}
-                  >
-                    {archived.includes(movie.title) ? (
-                      <img src="archived.svg" alt="archived" className="w-4 h-4 opacity-40" />
-                    ) : (
-                      <svg xmlns="http://w3.org" className="w-4 h-4" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z" />
-                        <path d="M13 5v2" />
-                        <path d="M13 17v2" />
-                        <path d="M13 11v2" />
-                      </svg>
-
-                    )}
-                  </button>
                 </div>
               </div>
             </div>
 
             {seen.length > 1 && (
               <div className="hidden lg:block fixed right-10 bottom-16 text-right z-50">
-                <div className="text-[10px] uppercase tracking-[0.4em] text-zinc-700 mb-3">recent</div>
+                <div className="text-[10px] uppercase tracking-[0.4em] text-zinc-700 mb-3">недавние</div>
                 {seen.slice(1).map((title, i) => (
                   <div key={i} className="text-sm mb-2 text-zinc-600" style={{ opacity: 1 - i * 0.2 }}>{title}</div>
                 ))}
